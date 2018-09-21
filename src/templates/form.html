@@ -1,0 +1,151 @@
+<html>
+<head>
+    <title>autocut</title>
+	<link rel="shortcut icon" href="favicon.ico">
+
+ <!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+<!-- Popper JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script> 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-29854873-3"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'UA-29854873-3');
+</script>
+
+<script>
+var counter = 1;
+$(document).ready(function () {
+    $("#addrow").on("click", function () {
+        var newRow = $("<tr>");
+        var cols = "";
+        cols += '<td><input type="number" class="form-control" name="height' + counter + '" id="height' + counter + '" value="20" step="0.001" min="0" /></td>';
+        cols += '<td><input type="number" class="form-control" name="width' + counter + '" id="width' + counter + '" value="10" step="0.001" min="0" /></td>';
+        cols += '<td><input type="number" class="form-control" name="units' + counter + '" id="units' + counter + '" value="1" step="1" min="0" /></td>';
+        cols += '<td><input type="button" class="ibtnDel btn btn-md btn-danger "  value="Delete"></td>';
+        newRow.append(cols);
+        $("table.order-list").append(newRow);
+        counter++;
+    });
+
+    $("table.order-list").on("click", ".ibtnDel", function (event) {
+        $(this).closest("tr").remove();       
+        counter -= 1
+    });
+});
+
+function dofetch() {
+  var url = '/cuts.svg';
+
+  var cuts = []
+  for (var r = 0; r < counter; r++) {
+    cuts.push({height: document.getElementById('height'+r).value,
+               width:  document.getElementById('width'+r).value,
+               number: document.getElementById('units'+r).value});
+  }
+
+  var data = {height: document.getElementById('H').value,
+              width: document.getElementById('W').value,
+              stockCount: document.getElementById('num').value,
+              clearance: document.getElementById('clearance').value,
+              cuts: cuts};
+
+  // Set up our HTTP request
+  var xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function () {
+	if (xhr.readyState !== 4) return;
+
+	if (xhr.status >= 200 && xhr.status < 300) {
+		document.getElementById('result').innerHTML = xhr.responseText;
+	}
+  };
+  xhr.open('POST', url);
+  xhr.setRequestHeader('Content-type', 'application/json');
+  xhr.send(JSON.stringify(data));
+
+}
+</script>
+
+</head>
+
+<body>
+<div class="container">
+  <h1>autocut configurator. <small>By B.Garcia (<a href="http://github.com/debuti">github.com/debuti</a>)</small></h1>
+</div> 
+
+<div class="container">
+  <div class="form-group">
+    <label for="H">Stock height (mm)</label>
+    <input type="number" class="form-control" id="H" name="H" placeholder="Height" value="297">
+  </div>
+  <div class="form-group">
+    <label for="W">Stock width (mm)</label>
+    <input type="number" class="form-control" id="W" name="W" placeholder="Width" value="210">
+  </div>
+  <div class="form-group">
+    <label for="num">Cardinality</label>
+    <input type="number" class="form-control" id="num" name="num" placeholder="Tabs" value="1">
+  </div>
+  <div class="form-group">
+    <label for="clearance">Clearance (mm)</label>
+    <input type="number" class="form-control" id="clearance" name="clearance" placeholder="Clearance" value="0.1" step="0.001" min="0">
+  </div>
+  <br>
+  <div class="form-group">
+    <label for="myTable">Required cuts</label>
+    <table id="myTable" class=" table order-list">
+      <thead>
+        <tr>
+            <td>Height</td>
+            <td>Width</td>
+            <td>Units</td>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+            <td class="col-sm-4">
+                <input type="number" name="height0" id="height0" value="10" step="0.001" min="0" class="form-control" />
+            </td>
+            <td class="col-sm-4">
+                <input type="number" name="width0"  id="width0" value="30" step="0.001" min="0" class="form-control"/>
+            </td>
+            <td class="col-sm-4">
+                <input type="number" name="units0"  id="units0" value="1" step="1" min="0" class="form-control"/>
+            </td>
+            <td class="col-sm-4"><a class="deleteRow"></a></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+            <td colspan="5" style="text-align: left;">
+                <input type="button" class="btn btn-lg btn-block " id="addrow" value="Add Row" />
+            </td>
+        </tr>
+        <tr>
+        </tr>
+      </tfoot>
+  </table>
+  </div>
+
+  <button type="submit" class="btn btn-primary" onclick="dofetch();">Submit</button>
+</div> 
+
+<br/><br/><br/>
+
+<div class="container" id="result">
+</div> 
+
+<br/><br/><br/>
+</body>
+</html>
