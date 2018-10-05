@@ -19,10 +19,40 @@ app = Flask(__name__)
 
 
 # Class declarations
+class Segment:
+  def __init__(self, x1, y1, x2, y2):
+    self.x1 = x1;
+    self.y1 = y1;
+    self.x2 = x2;
+    self.y2 = y2;
+    self.A = (y1-y2)
+    self.B = (x2-x1)
+    self.C = -1*(x1*y2 - x2*y1)
+  def intersect(self, segment):
+    if not isinstance(segment, Segment):
+      raise(TypeError("Oh no no"))
+    D  = self.A * segment.B - self.B * segment.A
+    Dx = self.C * segment.B - self.B * segment.C
+    Dy = self.A * segment.C - self.C * segment.A
+    if D != 0:
+      x = Dx / D
+      y = Dy / D
+      if (x<self.x1 or self.x2<x) and (x<self.x2 or self.x1<x) or \
+      (y<self.y1 or self.y2<y) and (y<self.y2 or self.y1<y) or \
+      (x<segment.x1 or segment.x2<x) and (x<segment.x2 or segment.x1<x) or \
+      (y<segment.y1 or segment.y2<y) and (y<segment.y2 or segment.y1<y):
+        return None;
+      #print ("Intersection between segment " + str(self) + " and " + str(segment)+" is "+ str(x)+ "," +str(y))
+      return (x,y)
+    else:
+      return None
+  def __str__(self):
+    return "("+str(self.x1)+", "+str(self.y1)+" --> "+str(self.x2)+", "+str(self.y2)+")"
+  def __repr__(self):
+    return self.__str__()
+
 
 # Function declarations
-
-
 def shapesToSVG(req, layout):
     '''
     '''
@@ -37,8 +67,6 @@ def shapesToSVG(req, layout):
 
 def compose(req, order, rot):
     '''
-    This method processes all the possible combinations of the requested cuts 
-    w/ and wo/ rotating the pieces 90 degrees
     '''
     def distance(p, q):
         '''
@@ -46,6 +74,48 @@ def compose(req, order, rot):
         d(p,q) = sqrt((q_x-p_x)^2 + (q_y-p_y)^2)
         '''
         return math.sqrt(numpy.sum(numpy.subtract(q, p) ** 2))
+
+    def selectBestTranslation(req, layout, elem):
+        '''       
+        Performs analisys over the layout to select the best fit for the new elem
+
+        :param req: The request obj
+        :param layout: The current layout: A list of shapes that are dicts of origins and sizes
+        :param elem: The new element to allocate: dict with width and height
+        :return: returns an array [x, y] with the best translation for this object
+        '''
+        result = [req["width"], req["height"]];
+        for degree in range(0,91):
+          start = [req["clearance"], req["clearance"]]
+          end = [req["width"], math.tan(math.radians(degree))*req["width"]]
+          if end[1] > req["height"]: 
+            end[0] = req["height"]/math.tan(math.radians(degree))
+            end[1] = req["height"]
+          segment = Segment(start[0],start[1],end[0],end[1])
+          
+          print(str(degree)+" Segment "+str(segment))
+          
+          for shape in layout:
+            n = Segment(shape["origin"]["x"], shape["origin"]["y"], shape["origin"]["x"] + shape["size"]["x"], shape["origin"]["y"])
+            e = Segment(shape["origin"]["x"] + shape["size"]["x"], shape["origin"]["y"], shape["origin"]["x"] + shape["size"]["x"], shape["origin"]["y"] + shape["size"]["y"])
+            s = Segment(shape["origin"]["x"] + shape["size"]["x"], shape["origin"]["y"] + shape["size"]["y"], shape["origin"]["x"], shape["origin"]["y"] + shape["size"]["y"])
+            w = Segment(shape["origin"]["x"], shape["origin"]["y"] + shape["size"]["y"], shape["origin"]["x"], shape["origin"]["y"])
+            print("Lets see")
+
+            pt = segment.intersect(e)
+            if pt: 
+              #print("   Segment e "+str(e))
+              if (distance([0,0], pt)<distance([0,0], result)):
+                print("      found a better pt " + str(pt))
+                result = pt
+            pt = segment.intersect(s)
+            if pt: 
+              #print("   Segment s "+str(s))
+              if (distance([0,0], pt)<distance([0,0], result)):
+                print("      found a better pt " + str(pt))
+                result = pt
+           
+        return result
 
     def layoutSize(layout):
         maxWidth = 0
@@ -57,20 +127,25 @@ def compose(req, order, rot):
 
     layout = []
     for idx, elem in enumerate(order):
-        lsize = layoutSize(layout)
+        if len(layout) > 0: 
+            [x,y] = selectBestTranslation(req, layout, req["pieces"][elem])
+        else:
+            x=0
+            y=0
         if rot[idx]:
-            layout.append({"origin":{"x":lsize["x"] + req["clearance"], "y":lsize["y"] + req["clearance"]}, 
+            layout.append({"origin":{"x":x + req["clearance"], "y":y + req["clearance"]}, 
                            "size": {"x":req["pieces"][elem]["height"], "y":req["pieces"][elem]["width"]}})
         else:
-            layout.append({"origin":{"x":lsize["x"] + req["clearance"], "y":lsize["y"] + req["clearance"]}, 
+            layout.append({"origin":{"x":x + req["clearance"], "y":y + req["clearance"]}, 
                            "size": {"x":req["pieces"][elem]["width"], "y":req["pieces"][elem]["height"]}})
         print ("layout: " + str(layout))
-    lsize = layoutSize(layout)
-    print ("layout diagonal: " + str(distance([0,0,0], [100,100,100])))
+    #print ("layout diagonal: " + str(distance([0,0,0], [100,100,100])))
     return layout
 
 def compute(req):
     '''
+    This method processes all the possible combinations of the requested cuts 
+    w/ and wo/ rotating the pieces 90 degrees
     '''
     result = ""
     print(json.dumps(req, indent=4, sort_keys=True))
@@ -115,7 +190,7 @@ def favicon():
 
 # Main body
 if __name__ == '__main__':
-    print(compute(json.loads('{"clearance": "0.1", "cuts": [{"height": "10", "number": "1", "width": "10"}, {"height": "20", "number": "1", "width": "20"}], "height": "297", "stockCount": "1", "width": "210"}')))
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    #print(compute(json.loads('{"clearance": "0.1", "cuts": [{"height": "10", "number": "1", "width": "10"}, {"height": "20", "number": "1", "width": "20"}], "height": "297", "stockCount": "1", "width": "210"}')))
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)), debug=True)
 
 
